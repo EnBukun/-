@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# 配置参数
+BASE_DIR="/f"                         # 数据存储根目录
+WORK_DIR="workingDirectory"           # 工作目录名称
+RUN_TIMES=5                           # 总运行次数
+FILE_TYPES=(                          # 需要处理的文件类型
+    "distance"
+    "theta"
+    "side"
+    "cross"
+    "current_velocity"
+    "target_velocity"
+)
+
+# 创建序号映射表(数字转英文序数词)
+declare -A RUN_PREFIX=(
+    [1]="first"
+    [2]="second"
+    [3]="third"
+    [4]="fourth"
+    [5]="fifth"
+)
+
+# 创建工作目录
+init_workspace() {
+    # 如果目录不存在则创建
+    [ ! -d "$WORK_DIR" ] && mkdir -p "$WORK_DIR"
+    
+    # 清空目录内容（如果存在文件）
+    if [ -d "$WORK_DIR" ] && [ "$(ls -A $WORK_DIR)" ]; then
+        rm -f "${WORK_DIR}"/*
+        echo "[信息] 已清空工作目录历史数据"
+    fi
+}
+
+# 主处理函数
+process_data() {
+    for run in $(seq 1 $RUN_TIMES); do
+        # 获取运行目录路径
+        source_dir="${BASE_DIR}/run_${run}"
+        
+        # 检查数据源目录是否存在
+        if [ ! -d "$source_dir" ]; then
+            echo "[警告] 目录不存在: ${source_dir}"
+            continue
+        fi
+
+        # 获取文件名前缀(例如：first_run, second_run...)
+        prefix="${RUN_PREFIX[$run]}_run"
+        
+        # 处理每种文件类型
+        for file_type in "${FILE_TYPES[@]}"; do
+            # 构建目标文件名
+            target_file="${WORK_DIR}/${prefix}_${file_type}.txt"
+            
+            # 查找最新数据文件
+            source_file=$(find "$source_dir" -name "${file_type}*" -print | sed -n '$p')
+            
+            # 执行复制操作
+            if [ -n "$source_file" ]; then
+                cp -p "$source_file" "$target_file"
+                echo "[成功] 已复制 ${source_file} 到 ${target_file}"
+            else
+                echo "[错误] 未找到 ${file_type} 类型文件"
+            fi
+        done
+    done
+}
+
+# 主程序流程
+main() {
+    echo "====== 数据收集程序启动 ======"
+    init_workspace
+    process_data
+    echo "====== 处理完成 ======"
+}
+
+# 执行主程序
+main
